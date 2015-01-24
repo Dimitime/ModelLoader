@@ -15,26 +15,22 @@
 
 #define WINDOW_WIDTH 1000
 #define WINDOW_HEIGHT 1000
-#define NUMBER_MODELS 4
+#define NUMBER_MODELS 3
 
 //OGL Buffer objects
 GLuint phongshader,flatshader;
 GLuint vao;
 GLuint vbo[2*NUMBER_MODELS];
-GLuint MatrixID;
 
 std::vector<glm::vec3> vertices[NUMBER_MODELS];
 std::vector<glm::vec3> normals[NUMBER_MODELS];
 std::vector<GLushort> faces[NUMBER_MODELS];
 
-//MVP matrices
-// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-glm::mat4 Projection = glm::perspective(45.0f, 4.0f / 4.0f, 0.1f, 100.0f);
-// Camera matrix
+glm::mat4 Projection = glm::ortho(-0.35,0.35,-0.35,0.35);
 glm::mat4 View = glm::lookAt(glm::vec3(0.0f,0.0f,1.0f), glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,1.0f,0.0f));
-
 glm::mat4 Model[4] = { glm::mat4(1.f), glm::mat4(1.f),  glm::mat4(1.f),  glm::mat4(1.f) };
 
+glm::vec3 center(std::vector<glm::vec3> pos);
 static void disp(void) {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -48,18 +44,26 @@ static void disp(void) {
 		//Vertex normals
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0 );
 		glEnableVertexAttribArray(1);
-		glm::mat4 MVP = Projection * View * Model[i];
+
+		GLuint m,v,p;
 		//Draw the models
-		if (i==0||i==1) {
-			glUseProgram(phongshader); 
-			MatrixID = glGetUniformLocation(phongshader, "MVP");
+		if (i==0) {
+			glUseProgram(phongshader);
+			m = glGetUniformLocation(phongshader, "model");
+			v = glGetUniformLocation(phongshader, "view");
+			p = glGetUniformLocation(phongshader, "projection");
 		}
 		else {
 			glUseProgram(flatshader);
-			MatrixID = glGetUniformLocation(flatshader, "MVP");
+			m = glGetUniformLocation(flatshader, "model");
+			v = glGetUniformLocation(flatshader, "view");
+			p = glGetUniformLocation(flatshader, "projection");
 		}
 
-		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+		glUniformMatrix4fv(m, 1, GL_FALSE, &Model[i][0][0]);
+		glUniformMatrix4fv(v, 1, GL_FALSE, &View[0][0]);
+		glUniformMatrix4fv(p, 1, GL_FALSE, &Projection[0][0]);
+
 		glDrawArrays(GL_TRIANGLES, 0, vertices[i].size());
 	}
 	//unbind everything
@@ -246,6 +250,7 @@ static void init(void) {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	glEnable(GL_DEPTH_TEST);
+    glEnable(GL_MULTISAMPLE);
 	// Accept fragment if it closer to the camera than the former one
 	glDepthFunc(GL_LESS);
 
@@ -264,21 +269,23 @@ static void init(void) {
 	std::cout << "Second mesh loaded" << std::endl;
 	loadObj("Meshes/me100.obj" ,vertices[2],normals[2],faces[2]);
 	std::cout << "Third mesh loaded" << std::endl;
-	loadObj("Meshes/me10.obj"  ,vertices[3],normals[3],faces[3]);
+	//loadObj("Meshes/me10.obj"  ,vertices[3],normals[3],faces[3]);
 	std::cout << "Fourth mesh loaded" << std::endl;
 	
-	Model[0] = glm::translate(Model[0], glm::vec3(-0.2f,0.15f,0.0f));
-	Model[1] = glm::translate(Model[1], glm::vec3(0.2f,0.15f,0.0f));
-	Model[2] = glm::translate(Model[2], glm::vec3(-0.2f,-0.15f,0.0f));
-	Model[3] = glm::translate(Model[3], glm::vec3(0.2f,-0.15f, 0.0f));
+	Model[0] = glm::scale(Model[0], glm::vec3(1.5f,1.5f,1.5f));
+
+	Model[0] = glm::translate(Model[0], glm::vec3(0.0f,0.13f,0.0f));
+	Model[1] = glm::translate(Model[1], glm::vec3(-0.2f,-0.13f,0.0f));
+	Model[2] = glm::translate(Model[2], glm::vec3(0.2f,-0.13f,0.0f));
+	//Model[3] = glm::translate(Model[3], glm::vec3(0.2f,-0.15f, 0.0f));
 
 	//Orient the meshes properly
 	for (size_t i=0; i<NUMBER_MODELS; i++) {
 		Model[i] = glm::translate(Model[i], center(vertices[i]));
-		Model[i] = glm::rotate(Model[i], -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+		Model[i] = glm::rotate(Model[i], 1.45f, glm::vec3(-1.0f, 0.0f, 0.0f));
+		Model[i] = glm::rotate(Model[i], 0.1f, glm::vec3(0.0f, 1.0f, 0.0f));
 		Model[i] = glm::translate(Model[i], -center(vertices[i]));
 	}
-
 	//Create vertex buffer object
 	glGenBuffers(2*NUMBER_MODELS, vbo);
 
@@ -302,7 +309,7 @@ int main(int argc, char** argv) {
 	glutInit (&argc, argv);
     //glutInitContextVersion(3,3);
     //glutInitContextProfile(GLUT_CORE_PROFILE);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB| GLUT_MULTISAMPLE);
 	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
 	glutInitWindowPosition(0,0);
 	glutCreateWindow("SPH");	
